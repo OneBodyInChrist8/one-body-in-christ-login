@@ -38,10 +38,8 @@ button{background:#194477;color:white;border:0;cursor:pointer}
 <div id="meetingBox" class="hidden">
 <h2>ONE BODY IN CHRIST LIVE</h2>
 <div id="jitsi-container" style="width:100%;height:500px;"></div>
-
 <button onclick="requestToSpeak()">REQUEST TO SPEAK</button>
 <p id="speakStatus"></p>
-
 <button onclick="closeMeeting()">CLOSE MEETING</button>
 </div>
 
@@ -66,10 +64,24 @@ button{background:#194477;color:white;border:0;cursor:pointer}
 <div id="requests"></div>
 
 <hr>
-
 <h3>Speaking Requests</h3>
 <button onclick="loadSpeakingRequests()">VIEW SPEAKING REQUESTS</button>
 <div id="speakingRequests"></div>
+</div>
+
+<div id="hostTools" class="hidden">
+<hr>
+<h2>HOST CONTROL</h2>
+
+<h3>Make a Member Host</h3>
+<input id="newHostUID" placeholder="Enter Member UID">
+<input id="newHostName" placeholder="Enter Member Name">
+<button onclick="makeHost()">MAKE HOST</button>
+<p id="hostMessage"></p>
+
+<h3>Current Hosts</h3>
+<button onclick="loadHosts()">VIEW HOSTS</button>
+<div id="hostList"></div>
 </div>
 
 <button onclick="logout()">LOGOUT</button>
@@ -100,6 +112,8 @@ const db = firebase.firestore();
 
 let jitsiApi = null;
 let speakingRequestUnsubscribe = null;
+let currentIsAdmin = false;
+let currentIsHost = false;
 
 function createAccount() {
   const email = document.getElementById("email").value.trim();
@@ -225,15 +239,13 @@ async function markPrayed(id) {
     await db.collection("prayerRequests").doc(id).update({
       status: "prayed"
     });
-
     loadRequests();
-
   } catch (e) {
     alert("Could not update: " + e.message);
   }
 }
 
-// MEMBER REQUEST TO SPEAK
+// REQUEST TO SPEAK
 
 async function requestToSpeak() {
   const user = auth.currentUser;
@@ -258,7 +270,7 @@ async function requestToSpeak() {
       speakingRequestUnsubscribe();
     }
 
-    output.innerText = "Your request has been sent. Waiting for Admin approval.";
+    output.innerText = "Your request has been sent. Waiting for approval.";
 
     speakingRequestUnsubscribe = db.collection("speakingRequests")
       .doc(ref.id)
@@ -267,9 +279,9 @@ async function requestToSpeak() {
           const status = doc.data().status;
 
           if (status === "approved") {
-            output.innerText = "Your speaking request has been APPROVED by Admin.";
+            output.innerText = "Your speaking request has been APPROVED.";
           } else if (status === "denied") {
-            output.innerText = "Your speaking request was DENIED by Admin.";
+            output.innerText = "Your speaking request was DENIED.";
           } else {
             output.innerText = "Your speaking request is PENDING.";
           }
@@ -283,14 +295,14 @@ async function requestToSpeak() {
   }
 }
 
-// ADMIN VIEW SPEAKING REQUESTS
+// ADMIN AND HOST VIEW SPEAKING REQUESTS
 
 async function loadSpeakingRequests() {
   const area = document.getElementById("speakingRequests");
   area.textContent = "Loading speaking requests...";
 
-  if (!auth.currentUser || auth.currentUser.uid !== ADMIN_UID) {
-    area.textContent = "Admin access only.";
+  if (!auth.currentUser || (!currentIsAdmin && !currentIsHost)) {
+    area.textContent = "Admin or Host access only.";
     return;
   }
 
@@ -342,24 +354,125 @@ async function loadSpeakingRequests() {
 }
 
 async function setSpeakingStatus(id, status) {
-  if (!auth.currentUser || auth.currentUser.uid !== ADMIN_UID) {
-    alert("Admin access only.");
+  if (!auth.currentUser || (!currentIsAdmin && !currentIsHost)) {
+    alert("Admin or Host access only.");
     return;
   }
 
-  if (status !== "approved" && status !== "denied") {
-    return;
-  }
+  if (status !== "approved" && status !== "denied") return;
 
   try {
     await db.collection("speakingRequests").doc(id).update({
       status: status
     });
-
     loadSpeakingRequests();
-
   } catch (e) {
     alert("Could not update request: " + e.message);
+  }
+}
+
+// MAKE HOST
+
+async function makeHost() {
+  const user = auth.currentUser;
+  const uid = document.getElementById("newHostUID").value.trim();
+  const name = document.getElementById("newHostName").value.trim();
+  const output = document.getElementById("hostMessage");
+
+  if (!user || (!currentIsAdmin && !currentIsHost)) {
+    output.innerText = "Admin or Host access only.";
+    return;
+  }
+
+  if (!uid || !name) {
+    output.innerText = "Please enter Member UID and Name.";
+    return;
+  }
+
+  try {
+    await db.collection("hosts").doc(uid).set({
+      userId: uid,
+      userName: name,
+      role: "host",
+      createdBy: user.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    output.innerText = "Member successfully made a HOST!";
+    document.getElementById("newHostUID").value = "";
+    document.getElementById("newHostName").value = "";
+    loadHosts();
+
+  } catch (e) {
+    output.innerText = "Could not make Host: " + e.message;
+  }
+}
+
+// VIEW HOSTS
+
+async function loadHosts() {
+  const area = document.getElementById("hostList");
+  area.textContent = "Loading Hosts...";
+
+  if (!auth.currentUser) {
+    area.textContent = "Please login first.";
+    return;
+  }
+
+  try {
+    const snapshot = await db.collection("hosts").get();
+    area.replaceChildren();
+
+    if (snapshot.empty) {
+      area.textContent = "No Hosts yet.";
+      return;
+    }
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const card = document.createElement("div");
+      card.className = "request";
+
+      const name = document.createElement("p");
+      name.textContent = "Host: " + (data.userName || "Unknown");
+      card.appendChild(name);
+
+      const uid = document.createElement("p");
+      uid.className = "small";
+      uid.textContent = "UID: " + doc.id;
+      card.appendChild(uid);
+
+      if (currentIsAdmin) {
+        const remove = document.createElement("button");
+        remove.textContent = "REMOVE HOST";
+        remove.onclick = () => removeHost(doc.id);
+        card.appendChild(remove);
+      }
+
+      area.appendChild(card);
+    });
+
+  } catch (e) {
+    area.textContent = "Error: " + e.message;
+  }
+}
+
+// REMOVE HOST - ADMIN ONLY
+
+async function removeHost(uid) {
+  if (!auth.currentUser || !currentIsAdmin) {
+    alert("Only Admin can remove a Host.");
+    return;
+  }
+
+  if (!confirm("Are you sure you want to remove this Host?")) return;
+
+  try {
+    await db.collection("hosts").doc(uid).delete();
+    alert("Host removed successfully.");
+    loadHosts();
+  } catch (e) {
+    alert("Could not remove Host: " + e.message);
   }
 }
 
@@ -400,20 +513,40 @@ function closeMeeting() {
   document.getElementById("meetingBox").classList.add("hidden");
 }
 
-// LOGIN STATE
+// LOGIN STATE AND ROLE CHECK
 
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async user => {
   document.getElementById("loginBox").classList.toggle("hidden", !!user);
   document.getElementById("dashboard").classList.toggle("hidden", !user);
+
+  currentIsAdmin = false;
+  currentIsHost = false;
+
+  document.getElementById("adminBox").classList.add("hidden");
+  document.getElementById("hostTools").classList.add("hidden");
 
   if (user) {
     document.getElementById("welcome").textContent = "Welcome, " + user.email;
 
-    const isAdmin = user.uid === ADMIN_UID;
-    document.getElementById("adminBox").classList.toggle("hidden", !isAdmin);
+    currentIsAdmin = user.uid === ADMIN_UID;
+
+    if (!currentIsAdmin) {
+      try {
+        const hostDoc = await db.collection("hosts").doc(user.uid).get();
+        currentIsHost = hostDoc.exists && hostDoc.data().role === "host";
+      } catch (e) {
+        console.error("Host check failed:", e);
+      }
+    }
+
+    document.getElementById("adminBox").classList.toggle("hidden", !currentIsAdmin);
+
+    document.getElementById("hostTools").classList.toggle(
+      "hidden",
+      !currentIsAdmin && !currentIsHost
+    );
 
   } else {
-    document.getElementById("adminBox").classList.add("hidden");
     document.getElementById("meetingBox").classList.add("hidden");
     document.getElementById("prayerBox").classList.add("hidden");
   }
