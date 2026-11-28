@@ -2,74 +2,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ONE BODY IN CHRIST</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f2f7;
-      text-align: center;
-      padding: 25px 12px;
-    }
-    .box {
-      background: white;
-      max-width: 500px;
-      margin: 35px auto;
-      padding: 30px 20px;
-      border-radius: 20px;
-    }
-    input, button, textarea {
-      box-sizing: border-box;
-      width: 100%;
-      padding: 18px;
-      margin: 10px 0;
-      font-size: 18px;
-      border-radius: 10px;
-    }
-    input, textarea {
-      border: 1px solid #aaa;
-    }
-    button {
-      background: #194477;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    .hidden { display: none; }
-    h1 { font-size: 30px; }
-  </style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ONE BODY IN CHRIST</title>
+<style>
+body{font-family:Arial;background:#f0f2f7;text-align:center;padding:15px}
+.box{background:white;max-width:550px;margin:25px auto;padding:22px;border-radius:16px}
+input,textarea,button{box-sizing:border-box;width:100%;padding:14px;margin:8px 0;font-size:16px;border-radius:9px}
+input,textarea{border:1px solid #aaa}
+button{background:#194477;color:white;border:0;cursor:pointer}
+.hidden{display:none}
+.request{background:#f1f3f7;padding:12px;margin:12px 0;border-radius:10px;text-align:left;overflow-wrap:anywhere}
+.small{font-size:13px;color:#555}
+</style>
 </head>
 <body>
-
 <div class="box">
-  <h1>ONE BODY IN CHRIST</h1>
+<h1>ONE BODY IN CHRIST</h1>
 
-  <div id="loginBox">
-    <h2>Member Login</h2>
-    <input id="email" type="email" placeholder="Enter Email Address">
-    <input id="password" type="password" placeholder="Enter Password">
-    <button onclick="createAccount()">CREATE ACCOUNT</button>
-    <button onclick="login()">LOGIN</button>
-    <p id="message"></p>
-  </div>
+<div id="loginBox">
+<h2>Member Login</h2>
+<input id="email" type="email" placeholder="Email Address">
+<input id="password" type="password" placeholder="Password">
+<button onclick="createAccount()">CREATE ACCOUNT</button>
+<button onclick="login()">LOGIN</button>
+<p id="message"></p>
+</div>
 
-  <div id="dashboard" class="hidden">
-    <h2>Member Dashboard</h2>
-    <button onclick="alert('Live Meeting link will be added soon.')">JOIN LIVE MEETING</button>
-    <button onclick="showPrayer()">PRAYER REQUEST</button>
-    <div id="prayerBox" class="hidden">
-      <textarea id="prayer" placeholder="Write your prayer request"></textarea>
-      <button onclick="sendPrayer()">SUBMIT PRAYER REQUEST</button>
-      <p id="prayerMessage"></p>
-    </div>
-    <button onclick="alert('Meeting schedule will be added soon.')">MEETING SCHEDULE</button>
-    <button onclick="alert('Bible Message: Matthew 18:20')">BIBLE MESSAGES</button>
-    <button onclick="logout()">LOGOUT</button>
-  </div>
+<div id="dashboard" class="hidden">
+<h2>Member Dashboard</h2>
+<p id="welcome"></p>
+<button onclick="alert('Live Meeting link will be added soon.')">JOIN LIVE MEETING</button>
+<button onclick="showPrayer()">PRAYER REQUEST</button>
+
+<div id="prayerBox" class="hidden">
+<h3>Send Your Prayer Request</h3>
+<textarea id="prayer" rows="4" placeholder="Write your prayer request"></textarea>
+<button onclick="sendPrayer()">SUBMIT PRAYER REQUEST</button>
+<p id="prayerMessage"></p>
+</div>
+
+<button onclick="alert('Meeting schedule will be added soon.')">MEETING SCHEDULE</button>
+<button onclick="alert('Bible Message: Matthew 18:20')">BIBLE MESSAGES</button>
+
+<div id="adminBox" class="hidden">
+<hr>
+<h2>Admin Dashboard</h2>
+<button onclick="loadRequests()">VIEW PRAYER REQUESTS</button>
+<div id="requests"></div>
+</div>
+
+<button onclick="logout()">LOGOUT</button>
+</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script>
 const firebaseConfig = {
@@ -81,25 +69,25 @@ const firebaseConfig = {
   appId: "1:1017118183484:web:91d9ed3b45113035ad7339"
 };
 
+// अपना असली Admin UID नीचे quotes के बीच पेस्ट करें।
+const ADMIN_UID = "ZMMVJGQDO7PgM96neKdoEJwRJVy1";
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+const db = firebase.firestore();
 
 function createAccount() {
-  const email = document.getElementById("email").value;
+  const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
-  auth.createUserWithEmailAndPassword(email, password)
-    .catch(error => {
-      document.getElementById("message").innerText = error.message;
-    });
+  auth.createUserWithEmailAndPassword(email,password)
+    .catch(e => document.getElementById("message").innerText=e.message);
 }
 
 function login() {
-  const email = document.getElementById("email").value;
+  const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
-  auth.signInWithEmailAndPassword(email, password)
-    .catch(error => {
-      document.getElementById("message").innerText = error.message;
-    });
+  auth.signInWithEmailAndPassword(email,password)
+    .catch(e => document.getElementById("message").innerText=e.message);
 }
 
 function logout() {
@@ -110,23 +98,112 @@ function showPrayer() {
   document.getElementById("prayerBox").classList.toggle("hidden");
 }
 
-function sendPrayer() {
-  const prayer = document.getElementById("prayer").value.trim();
-  document.getElementById("prayerMessage").innerText =
-    prayer ? "Your prayer request has been entered. Saving feature will be added later." :
-    "Please write your prayer request.";
+async function sendPrayer() {
+  const user = auth.currentUser;
+  const message = document.getElementById("prayer").value.trim();
+  const output = document.getElementById("prayerMessage");
+
+  if (!user) {
+    output.innerText = "Please login first.";
+    return;
+  }
+  if (!message || message.length > 2000) {
+    output.innerText = "Please enter a request (maximum 2000 characters).";
+    return;
+  }
+
+  try {
+    await db.collection("prayerRequests").add({
+      message: message,
+      status: "pending",
+      userId: user.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById("prayer").value = "";
+    output.innerText = "Your prayer request was sent successfully. God bless you!";
+  } catch (e) {
+    output.innerText = "Could not send request: " + e.message;
+  }
+}
+
+async function loadRequests() {
+  const area = document.getElementById("requests");
+  area.textContent = "Loading prayer requests...";
+
+  if (!auth.currentUser || auth.currentUser.uid !== ADMIN_UID) {
+    area.textContent = "Admin access only.";
+    return;
+  }
+
+  try {
+    const snapshot = await db.collection("prayerRequests").get();
+    area.replaceChildren();
+
+    if (snapshot.empty) {
+      area.textContent = "No prayer requests yet.";
+      return;
+    }
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const card = document.createElement("div");
+      card.className = "request";
+
+      const message = document.createElement("p");
+      message.textContent = data.message || "(No message)";
+      card.appendChild(message);
+
+      const status = document.createElement("p");
+      status.className = "small";
+      status.textContent = "Status: " + (data.status || "unknown");
+      card.appendChild(status);
+
+      const user = document.createElement("p");
+      user.className = "small";
+      user.textContent = "Member UID: " + (data.userId || "Not available");
+      card.appendChild(user);
+
+      if (data.status !== "prayed") {
+        const btn = document.createElement("button");
+        btn.textContent = "MARK AS PRAYED";
+        btn.onclick = () => markPrayed(doc.id);
+        card.appendChild(btn);
+      }
+
+      area.appendChild(card);
+    });
+  } catch (e) {
+    area.textContent = "Error: " + e.message;
+  }
+}
+
+async function markPrayed(id) {
+  if (!auth.currentUser || auth.currentUser.uid !== ADMIN_UID) {
+    alert("Admin access only.");
+    return;
+  }
+  try {
+    await db.collection("prayerRequests").doc(id).update({
+      status: "prayed"
+    });
+    loadRequests();
+  } catch (e) {
+    alert("Could not update: " + e.message);
+  }
 }
 
 auth.onAuthStateChanged(user => {
+  document.getElementById("loginBox").classList.toggle("hidden",!!user);
+  document.getElementById("dashboard").classList.toggle("hidden",!user);
+
   if (user) {
-    document.getElementById("loginBox").classList.add("hidden");
-    document.getElementById("dashboard").classList.remove("hidden");
+    document.getElementById("welcome").textContent = "Welcome, " + user.email;
+    const isAdmin = user.uid === ADMIN_UID;
+    document.getElementById("adminBox").classList.toggle("hidden",!isAdmin);
   } else {
-    document.getElementById("loginBox").classList.remove("hidden");
-    document.getElementById("dashboard").classList.add("hidden");
+    document.getElementById("adminBox").classList.add("hidden");
   }
 });
 </script>
-
 </body>
 </html>
