@@ -4,69 +4,68 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ONE BODY IN CHRIST</title>
-
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f1f3f7;
+      background: #f0f2f7;
       text-align: center;
-      padding: 30px 15px;
+      padding: 25px 12px;
     }
-
     .box {
       background: white;
-      padding: 25px 18px;
-      border-radius: 15px;
-      max-width: 420px;
-      margin: 30px auto;
+      max-width: 500px;
+      margin: 35px auto;
+      padding: 30px 20px;
+      border-radius: 20px;
     }
-
-    input, button {
-      width: 100%;
-      padding: 15px;
-      margin: 10px 0;
+    input, button, textarea {
       box-sizing: border-box;
-      font-size: 16px;
-      border-radius: 8px;
+      width: 100%;
+      padding: 18px;
+      margin: 10px 0;
+      font-size: 18px;
+      border-radius: 10px;
     }
-
-    input {
+    input, textarea {
       border: 1px solid #aaa;
     }
-
     button {
-      background: #203e75;
+      background: #194477;
       color: white;
       border: none;
+      cursor: pointer;
     }
-
-    #message {
-      color: #203e75;
-      overflow-wrap: anywhere;
-    }
+    .hidden { display: none; }
+    h1 { font-size: 30px; }
   </style>
 </head>
-
 <body>
+
 <div class="box">
+  <h1>ONE BODY IN CHRIST</h1>
 
-  <h2>ONE BODY IN CHRIST</h2>
-  <p>Member Login</p>
+  <div id="loginBox">
+    <h2>Member Login</h2>
+    <input id="email" type="email" placeholder="Enter Email Address">
+    <input id="password" type="password" placeholder="Enter Password">
+    <button onclick="createAccount()">CREATE ACCOUNT</button>
+    <button onclick="login()">LOGIN</button>
+    <p id="message"></p>
+  </div>
 
-  <input id="email" type="email"
-    placeholder="Enter Email Address">
-
-  <input id="password" type="password"
-    placeholder="Enter Password">
-
-  <button onclick="createAccount()">CREATE ACCOUNT</button>
-
-  <button onclick="login()">LOGIN</button>
-
-  <button onclick="logout()">LOGOUT</button>
-
-  <p id="message"></p>
-
+  <div id="dashboard" class="hidden">
+    <h2>Member Dashboard</h2>
+    <button onclick="alert('Live Meeting link will be added soon.')">JOIN LIVE MEETING</button>
+    <button onclick="showPrayer()">PRAYER REQUEST</button>
+    <div id="prayerBox" class="hidden">
+      <textarea id="prayer" placeholder="Write your prayer request"></textarea>
+      <button onclick="sendPrayer()">SUBMIT PRAYER REQUEST</button>
+      <p id="prayerMessage"></p>
+    </div>
+    <button onclick="alert('Meeting schedule will be added soon.')">MEETING SCHEDULE</button>
+    <button onclick="alert('Bible Message: Matthew 18:20')">BIBLE MESSAGES</button>
+    <button onclick="logout()">LOGOUT</button>
+  </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -83,53 +82,50 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-
 const auth = firebase.auth();
 
-function getDetails() {
-  return {
-    email: document.getElementById("email").value.trim(),
-    password: document.getElementById("password").value,
-    message: document.getElementById("message")
-  };
+function createAccount() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  auth.createUserWithEmailAndPassword(email, password)
+    .catch(error => {
+      document.getElementById("message").innerText = error.message;
+    });
 }
 
-async function createAccount() {
-  const d = getDetails();
+function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  auth.signInWithEmailAndPassword(email, password)
+    .catch(error => {
+      document.getElementById("message").innerText = error.message;
+    });
+}
 
-  try {
-    await auth.createUserWithEmailAndPassword(
-      d.email, d.password
-    );
-    d.message.innerText = "Account created successfully!";
-  } catch (error) {
-    d.message.innerText = error.message;
+function logout() {
+  auth.signOut();
+}
+
+function showPrayer() {
+  document.getElementById("prayerBox").classList.toggle("hidden");
+}
+
+function sendPrayer() {
+  const prayer = document.getElementById("prayer").value.trim();
+  document.getElementById("prayerMessage").innerText =
+    prayer ? "Your prayer request has been entered. Saving feature will be added later." :
+    "Please write your prayer request.";
+}
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+  } else {
+    document.getElementById("loginBox").classList.remove("hidden");
+    document.getElementById("dashboard").classList.add("hidden");
   }
-}
-
-async function login() {
-  const d = getDetails();
-
-  try {
-    await auth.signInWithEmailAndPassword(
-      d.email, d.password
-    );
-    d.message.innerText = "Login successful!";
-  } catch (error) {
-    d.message.innerText = error.message;
-  }
-}
-
-async function logout() {
-  try {
-    await auth.signOut();
-    document.getElementById("message").innerText =
-      "You have logged out.";
-  } catch (error) {
-    document.getElementById("message").innerText =
-      error.message;
-  }
-}
+});
 </script>
 
 </body>
